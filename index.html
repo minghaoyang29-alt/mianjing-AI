@@ -2021,6 +2021,102 @@ a:hover {
 }
 
 /* ============================================================
+   AI 配置区域
+   ============================================================ */
+
+.ai-config-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(76, 175, 80, 0.08);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: #388E3C;
+  margin-bottom: 12px;
+}
+
+.ai-config-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+}
+
+.ai-config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.config-row label {
+  flex: 0 0 100px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.config-row select,
+.config-row input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.config-row input[type="password"] {
+  font-family: monospace;
+}
+
+.config-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.api-test-result {
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.api-test-result.success {
+  background: rgba(76, 175, 80, 0.1);
+  color: #388E3C;
+  border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.api-test-result.error {
+  background: rgba(244, 67, 54, 0.1);
+  color: #D32F2F;
+  border: 1px solid rgba(244, 67, 54, 0.2);
+}
+
+@media (max-width: 768px) {
+  .config-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .config-row label {
+    flex: none;
+  }
+  .config-row select,
+  .config-row input {
+    width: 100%;
+  }
+}
+
+/* ============================================================
    练习热力图
    ============================================================ */
 
@@ -2626,6 +2722,46 @@ a:hover {
             <input type="checkbox" id="toggle-speech">
             <span class="toggle-slider"></span>
           </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3 class="subsection-title">AI 模型配置</h3>
+        <div class="ai-config-notice">
+          <span class="notice-icon">&#128274;</span>
+          <span>你的API Key仅保存在本地浏览器中，不会上传到任何服务器。</span>
+        </div>
+        <p class="ai-config-desc">接入真实AI后，面试提问和评价将由AI生成，体验更智能。不配置时使用内置Mock模式。</p>
+        <div class="ai-config-form">
+          <div class="config-row">
+            <label>API 提供商</label>
+            <select id="select-ai-provider">
+              <option value="">不使用AI（Mock模式）</option>
+              <option value="deepseek">DeepSeek（推荐，注册送额度）</option>
+              <option value="siliconflow">硅基流动 SiliconFlow（免费额度）</option>
+              <option value="qwen">通义千问（阿里云免费额度）</option>
+              <option value="openai">OpenAI</option>
+              <option value="custom">自定义（Ollama/LM Studio等）</option>
+            </select>
+          </div>
+          <div class="config-row" id="row-api-key" style="display:none">
+            <label>API Key</label>
+            <input type="password" id="input-api-key" placeholder="sk-xxxx..." autocomplete="off">
+          </div>
+          <div class="config-row" id="row-custom-url" style="display:none">
+            <label>自定义 API 地址</label>
+            <input type="text" id="input-custom-url" placeholder="http://localhost:11434/v1">
+          </div>
+          <div class="config-row" id="row-model" style="display:none">
+            <label>模型</label>
+            <select id="select-ai-model"></select>
+          </div>
+          <div class="config-actions">
+            <button class="btn btn-secondary" id="btn-test-api">测试连接</button>
+            <button class="btn btn-primary" id="btn-save-api">保存配置</button>
+            <button class="btn btn-danger" id="btn-clear-api">清除</button>
+          </div>
+          <div id="api-test-result" class="api-test-result hidden"></div>
         </div>
       </div>
 
@@ -7822,6 +7958,30 @@ const App = (function () {
       });
     }
 
+    // AI API配置 - 提供商切换
+    var providerSelect = document.getElementById('select-ai-provider');
+    if (providerSelect) {
+      providerSelect.addEventListener('change', handleProviderChange);
+    }
+
+    // AI API配置 - 保存
+    var saveApiBtn = document.getElementById('btn-save-api');
+    if (saveApiBtn) {
+      saveApiBtn.addEventListener('click', handleSaveApiConfig);
+    }
+
+    // AI API配置 - 测试
+    var testApiBtn = document.getElementById('btn-test-api');
+    if (testApiBtn) {
+      testApiBtn.addEventListener('click', handleTestApiConnection);
+    }
+
+    // AI API配置 - 清除
+    var clearApiBtn = document.getElementById('btn-clear-api');
+    if (clearApiBtn) {
+      clearApiBtn.addEventListener('click', handleClearApiConfig);
+    }
+
     // 键盘快捷键
     document.addEventListener('keydown', function (e) {
       // Ctrl+Enter 提交回答
@@ -8467,6 +8627,9 @@ const App = (function () {
     if (darkModeToggle) {
       darkModeToggle.checked = document.body.classList.contains('dark-mode');
     }
+
+    // AI API配置状态
+    renderApiConfig();
 
     // 版本信息
     setTextContent('settings-version', i18n.t('settings.version') + ' 1.0.0');
@@ -9127,45 +9290,113 @@ const App = (function () {
 
     var text = input.value.trim();
 
-    // 模拟AI分析（使用本地Scoring模块）
-    setTimeout(function() {
-      var scores = Scoring.evaluate(text, 'zh');
-      var feedback = Scoring.getFeedback(scores, 'zh');
+    // 文本太短时给出提示
+    if (text.length < 20) {
+      alert('回答内容太短了（至少需要20字），建议按照STAR框架详细描述你的经历。\n\n例如：在我大三的时候，我担任了学生会学术部部长。当时...');
+      return;
+    }
 
-      if (loadingDiv) loadingDiv.style.display = 'none';
+    // 判断是否使用真实AI
+    if (typeof AIService !== 'undefined' && AIService.isConfigured()) {
+      // 使用真实AI评价
+      var evalPrompt = AIService.getEvaluationPrompt(text, i18n.currentLang);
+      AIService.chat([
+        { role: 'system', content: evalPrompt },
+        { role: 'user', content: '请评价以下面试回答：\n\n' + text }
+      ], { temperature: 0.3, maxTokens: 1000, stream: false }).then(function(response) {
+        if (loadingDiv) loadingDiv.style.display = 'none';
 
-      var html = '<div class="eval-score-card">';
-      html += '<div class="eval-score-item"><div class="score-label">Situation</div><div class="score-value">' + scores.situation + '</div></div>';
-      html += '<div class="eval-score-item"><div class="score-label">Task</div><div class="score-value">' + scores.task + '</div></div>';
-      html += '<div class="eval-score-item"><div class="score-label">Action</div><div class="score-value">' + scores.action + '</div></div>';
-      html += '<div class="eval-score-item"><div class="score-label">Result</div><div class="score-value">' + scores.result + '</div></div>';
-      html += '</div>';
-
-      html += '<div class="eval-feedback">';
-      html += '<h4>综合评价</h4>';
-      html += '<p>' + (feedback.summary || '回答已分析完成。') + '</p>';
-
-      if (feedback.suggestions) {
-        html += '<h4>改进建议</h4>';
-        html += '<ul>';
-        var suggestions = feedback.suggestions.split('；');
-        for (var i = 0; i < suggestions.length; i++) {
-          if (suggestions[i].trim()) {
-            html += '<li>' + escapeHtml(suggestions[i].trim()) + '</li>';
+        // 尝试解析AI返回的JSON
+        var evalResult = null;
+        try {
+          // 尝试从回复中提取JSON
+          var jsonMatch = response.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            evalResult = JSON.parse(jsonMatch[0]);
           }
+        } catch (e) {
+          // JSON解析失败，显示原始回复
         }
-        html += '</ul>';
+
+        if (evalResult && evalResult.situation !== undefined) {
+          // AI返回了结构化评分
+          var html = '<div class="eval-score-card">';
+          html += '<div class="eval-score-item"><div class="score-label">Situation</div><div class="score-value">' + evalResult.situation + '</div></div>';
+          html += '<div class="eval-score-item"><div class="score-label">Task</div><div class="score-value">' + evalResult.task + '</div></div>';
+          html += '<div class="eval-score-item"><div class="score-label">Action</div><div class="score-value">' + evalResult.action + '</div></div>';
+          html += '<div class="eval-score-item"><div class="score-label">Result</div><div class="score-value">' + evalResult.result + '</div></div>';
+          html += '</div>';
+          html += '<div class="eval-feedback">';
+          html += '<h4>AI综合评价</h4>';
+          html += '<p>' + escapeHtml(evalResult.summary || evalResult.overall || '') + '</p>';
+          if (evalResult.suggestions) {
+            html += '<h4>改进建议</h4>';
+            html += '<ul>';
+            var sugs = Array.isArray(evalResult.suggestions) ? evalResult.suggestions : [evalResult.suggestions];
+            for (var s = 0; s < sugs.length; s++) {
+              html += '<li>' + escapeHtml(sugs[s]) + '</li>';
+            }
+            html += '</ul>';
+          }
+          html += '</div>';
+          if (outputDiv) outputDiv.innerHTML = html;
+        } else {
+          // AI返回了非结构化文本，直接显示
+          if (outputDiv) outputDiv.innerHTML = '<div class="eval-feedback"><h4>AI评价</h4><p>' + escapeHtml(response) + '</p></div>';
+        }
+      }).catch(function(err) {
+        if (loadingDiv) loadingDiv.style.display = 'none';
+        if (outputDiv) outputDiv.innerHTML = '<div class="eval-feedback" style="border-left-color:var(--color-danger)"><h4>AI评价失败</h4><p>' + escapeHtml(err.message || '未知错误') + '</p><p>已自动切换为本地评分模式。</p></div>';
+        // 降级到本地评分
+        fallbackLocalEval(text, loadingDiv, outputDiv);
+      });
+    } else {
+      // 使用本地Mock评分
+      setTimeout(function() {
+        fallbackLocalEval(text, loadingDiv, outputDiv);
+      }, 1500);
+    }
+  }
+
+  /**
+   * 本地评分降级方案
+   */
+  function fallbackLocalEval(text, loadingDiv, outputDiv) {
+    var scores = Scoring.scoreAnswer(text, 'zh');
+    var feedback = Scoring.generateFeedback(scores, text, 'zh');
+
+    if (loadingDiv) loadingDiv.style.display = 'none';
+
+    var html = '<div class="eval-score-card">';
+    html += '<div class="eval-score-item"><div class="score-label">Situation</div><div class="score-value">' + scores.situation + '</div></div>';
+    html += '<div class="eval-score-item"><div class="score-label">Task</div><div class="score-value">' + scores.task + '</div></div>';
+    html += '<div class="eval-score-item"><div class="score-label">Action</div><div class="score-value">' + scores.action + '</div></div>';
+    html += '<div class="eval-score-item"><div class="score-label">Result</div><div class="score-value">' + scores.result + '</div></div>';
+    html += '</div>';
+
+    html += '<div class="eval-feedback">';
+    html += '<h4>综合评价</h4>';
+    html += '<p>' + (feedback.summary || '回答已分析完成。') + '</p>';
+
+    if (feedback.suggestions) {
+      html += '<h4>改进建议</h4>';
+      html += '<ul>';
+      var suggestions = feedback.suggestions.split('；');
+      for (var i = 0; i < suggestions.length; i++) {
+        if (suggestions[i].trim()) {
+          html += '<li>' + escapeHtml(suggestions[i].trim()) + '</li>';
+        }
       }
+      html += '</ul>';
+    }
 
-      if (feedback.weakSuggestion) {
-        html += '<h4>薄弱环节提示</h4>';
-        html += '<p>' + escapeHtml(feedback.weakSuggestion) + '</p>';
-      }
+    if (feedback.weakSuggestion) {
+      html += '<h4>薄弱环节提示</h4>';
+      html += '<p>' + escapeHtml(feedback.weakSuggestion) + '</p>';
+    }
 
-      html += '</div>';
-
-      if (outputDiv) outputDiv.innerHTML = html;
-    }, 1500);
+    html += '</div>';
+    if (outputDiv) outputDiv.innerHTML = html;
   }
 
   /**
@@ -9387,6 +9618,185 @@ const App = (function () {
   }
 
   /**
+   * 渲染AI API配置状态
+   */
+  function renderApiConfig() {
+    if (typeof AIService === 'undefined') return;
+
+    var config = AIService.getConfig();
+    var providerSelect = document.getElementById('select-ai-provider');
+    var apiKeyInput = document.getElementById('input-api-key');
+    var customUrlInput = document.getElementById('input-custom-url');
+    var modelSelect = document.getElementById('select-ai-model');
+
+    if (providerSelect && config && config.provider) {
+      providerSelect.value = config.provider;
+      handleProviderChange();
+    }
+
+    if (apiKeyInput && config && config.apiKey) {
+      apiKeyInput.value = config.apiKey;
+    }
+
+    if (customUrlInput && config && config.baseUrl && config.provider === 'custom') {
+      customUrlInput.value = config.baseUrl;
+    }
+
+    if (modelSelect && config && config.model) {
+      modelSelect.value = config.model;
+    }
+  }
+
+  /**
+   * 处理提供商切换
+   */
+  function handleProviderChange() {
+    var providerSelect = document.getElementById('select-ai-provider');
+    var rowApiKey = document.getElementById('row-api-key');
+    var rowCustomUrl = document.getElementById('row-custom-url');
+    var rowModel = document.getElementById('row-model');
+    var modelSelect = document.getElementById('select-ai-model');
+
+    var provider = providerSelect ? providerSelect.value : '';
+
+    // 显示/隐藏配置行
+    if (rowApiKey) rowApiKey.style.display = provider ? 'flex' : 'none';
+    if (rowCustomUrl) rowCustomUrl.style.display = provider === 'custom' ? 'flex' : 'none';
+    if (rowModel) rowModel.style.display = provider ? 'flex' : 'none';
+
+    // 更新模型列表
+    if (modelSelect && typeof AIService !== 'undefined') {
+      modelSelect.innerHTML = '';
+      if (provider && AIService.providers && AIService.providers[provider]) {
+        var models = AIService.providers[provider].models || [];
+        for (var i = 0; i < models.length; i++) {
+          var opt = document.createElement('option');
+          opt.value = models[i];
+          opt.textContent = models[i];
+          modelSelect.appendChild(opt);
+        }
+      }
+    }
+  }
+
+  /**
+   * 保存AI API配置
+   */
+  function handleSaveApiConfig() {
+    if (typeof AIService === 'undefined') return;
+
+    var providerSelect = document.getElementById('select-ai-provider');
+    var apiKeyInput = document.getElementById('input-api-key');
+    var customUrlInput = document.getElementById('input-custom-url');
+    var modelSelect = document.getElementById('select-ai-model');
+
+    var provider = providerSelect ? providerSelect.value : '';
+    if (!provider) {
+      AIService.clearConfig();
+      alert('已切换为Mock模式，不使用AI。');
+      return;
+    }
+
+    var apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
+    if (!apiKey && provider !== 'custom') {
+      alert('请输入API Key');
+      return;
+    }
+
+    var model = modelSelect ? modelSelect.value : '';
+    var baseUrl = '';
+
+    if (provider === 'custom') {
+      baseUrl = customUrlInput ? customUrlInput.value.trim() : '';
+      if (!baseUrl) {
+        alert('请输入自定义API地址');
+        return;
+      }
+    }
+
+    var config = {
+      provider: provider,
+      apiKey: apiKey,
+      model: model
+    };
+
+    if (baseUrl) {
+      config.baseUrl = baseUrl;
+    }
+
+    AIService.saveConfig(config);
+    alert('AI配置已保存！\n\n提供商: ' + (AIService.providers[provider] ? AIService.providers[provider].name : provider) + '\n模型: ' + model);
+  }
+
+  /**
+   * 测试AI API连接
+   */
+  function handleTestApiConnection() {
+    if (typeof AIService === 'undefined') return;
+
+    var resultDiv = document.getElementById('api-test-result');
+    if (resultDiv) {
+      resultDiv.classList.remove('hidden', 'success', 'error');
+      resultDiv.textContent = '正在测试连接...';
+      resultDiv.style.display = 'block';
+    }
+
+    // 先保存当前配置再测试
+    var providerSelect = document.getElementById('select-ai-provider');
+    var apiKeyInput = document.getElementById('input-api-key');
+    var customUrlInput = document.getElementById('input-custom-url');
+    var modelSelect = document.getElementById('select-ai-model');
+
+    var config = {
+      provider: providerSelect ? providerSelect.value : '',
+      apiKey: apiKeyInput ? apiKeyInput.value.trim() : '',
+      model: modelSelect ? modelSelect.value : ''
+    };
+
+    if (config.provider === 'custom') {
+      config.baseUrl = customUrlInput ? customUrlInput.value.trim() : '';
+    }
+
+    AIService.saveConfig(config);
+
+    AIService.testConnection().then(function(result) {
+      if (resultDiv) {
+        resultDiv.className = 'api-test-result ' + (result.success ? 'success' : 'error');
+        resultDiv.textContent = result.success ? '连接成功！' + (result.message || '') : '连接失败：' + (result.message || '未知错误');
+      }
+    });
+  }
+
+  /**
+   * 清除AI API配置
+   */
+  function handleClearApiConfig() {
+    if (typeof AIService !== 'undefined') {
+      AIService.clearConfig();
+    }
+
+    var providerSelect = document.getElementById('select-ai-provider');
+    var apiKeyInput = document.getElementById('input-api-key');
+    var customUrlInput = document.getElementById('input-custom-url');
+    var modelSelect = document.getElementById('select-ai-model');
+    var rowApiKey = document.getElementById('row-api-key');
+    var rowCustomUrl = document.getElementById('row-custom-url');
+    var rowModel = document.getElementById('row-model');
+    var resultDiv = document.getElementById('api-test-result');
+
+    if (providerSelect) providerSelect.value = '';
+    if (apiKeyInput) apiKeyInput.value = '';
+    if (customUrlInput) customUrlInput.value = '';
+    if (modelSelect) modelSelect.innerHTML = '';
+    if (rowApiKey) rowApiKey.style.display = 'none';
+    if (rowCustomUrl) rowCustomUrl.style.display = 'none';
+    if (rowModel) rowModel.style.display = 'none';
+    if (resultDiv) resultDiv.style.display = 'none';
+
+    alert('AI配置已清除，已切换为Mock模式。');
+  }
+
+  /**
    * 计算连续练习天数
    * @param {Array} history - 历史记录
    * @returns {number} 连续天数
@@ -9467,6 +9877,541 @@ const App = (function () {
 document.addEventListener('DOMContentLoaded', function () {
   App.init();
 });
+
+</script>
+  <script>
+/**
+ * ai-service.js - AI API调用服务模块
+ * 负责管理API配置、调用AI接口、流式响应处理、面试专用Prompt生成
+ * 支持OpenAI兼容接口（OpenAI、DeepSeek、硅基流动SiliconFlow、通义千问等）
+ */
+var AIService = (function () {
+  'use strict';
+
+  // localStorage存储键名
+  var STORAGE_KEY = 'mj_ai_config';
+
+  // 当前配置（内存缓存）
+  var currentConfig = null;
+
+  // 提供商预设配置
+  var providers = {
+    openai: {
+      name: 'OpenAI',
+      baseUrl: 'https://api.openai.com/v1',
+      models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo']
+    },
+    deepseek: {
+      name: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com/v1',
+      models: ['deepseek-chat', 'deepseek-reasoner']
+    },
+    siliconflow: {
+      name: '硅基流动 SiliconFlow',
+      baseUrl: 'https://api.siliconflow.cn/v1',
+      models: ['Qwen/Qwen2.5-7B-Instruct', 'deepseek-ai/DeepSeek-V2.5']
+    },
+    qwen: {
+      name: '通义千问',
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      models: ['qwen-turbo', 'qwen-plus', 'qwen-max']
+    }
+  };
+
+  // ==================== 配置管理 ====================
+
+  /**
+   * 保存API配置到localStorage
+   * @param {Object} config - 配置对象 { provider, apiKey, model, baseUrl }
+   */
+  function saveConfig(config) {
+    try {
+      var configStr = JSON.stringify(config);
+      localStorage.setItem(STORAGE_KEY, configStr);
+      currentConfig = config;
+      console.log('[AIService] 配置已保存');
+    } catch (e) {
+      console.error('[AIService] 保存配置失败:', e);
+      throw new Error('保存配置失败: ' + e.message);
+    }
+  }
+
+  /**
+   * 从localStorage加载配置
+   * @returns {Object|null} 配置对象，未配置时返回null
+   */
+  function loadConfig() {
+    try {
+      var configStr = localStorage.getItem(STORAGE_KEY);
+      if (configStr) {
+        currentConfig = JSON.parse(configStr);
+        return currentConfig;
+      }
+      return null;
+    } catch (e) {
+      console.error('[AIService] 加载配置失败:', e);
+      return null;
+    }
+  }
+
+  /**
+   * 获取当前配置
+   * 优先返回内存缓存，否则从localStorage加载
+   * @returns {Object|null} 配置对象
+   */
+  function getConfig() {
+    if (currentConfig) {
+      return currentConfig;
+    }
+    return loadConfig();
+  }
+
+  /**
+   * 清除配置（localStorage和内存缓存）
+   */
+  function clearConfig() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      currentConfig = null;
+      console.log('[AIService] 配置已清除');
+    } catch (e) {
+      console.error('[AIService] 清除配置失败:', e);
+    }
+  }
+
+  /**
+   * 检查是否已完成API配置
+   * @returns {boolean} 是否已配置
+   */
+  function isConfigured() {
+    var config = getConfig();
+    return !!(config && config.apiKey && config.provider);
+  }
+
+  // ==================== API调用 ====================
+
+  /**
+   * 构建请求头
+   * @param {string} apiKey - API密钥
+   * @returns {Object} 请求头对象
+   */
+  function buildHeaders(apiKey) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
+    };
+  }
+
+  /**
+   * 构建请求体
+   * @param {Array} messages - 消息数组
+   * @param {Object} options - 可选参数 { temperature, maxTokens }
+   * @param {boolean} stream - 是否启用流式响应
+   * @returns {Object} 请求体对象
+   */
+  function buildRequestBody(messages, options, stream) {
+    var body = {
+      model: getConfig().model,
+      messages: messages,
+      stream: !!stream
+    };
+
+    // 可选参数
+    if (options) {
+      if (options.temperature !== undefined && options.temperature !== null) {
+        body.temperature = options.temperature;
+      }
+      if (options.maxTokens !== undefined && options.maxTokens !== null) {
+        body.max_tokens = options.maxTokens;
+      }
+    }
+
+    return body;
+  }
+
+  /**
+   * 解析SSE流式响应，逐字提取内容
+   * @param {Response} response - fetch响应对象
+   * @param {Function} onChunk - 每收到一段文本时的回调
+   * @returns {Promise<string>} 完整的回复文本
+   */
+  function parseStreamResponse(response, onChunk) {
+    return new Promise(function (resolve, reject) {
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder('utf-8');
+      var fullText = '';
+      var buffer = '';
+
+      function read() {
+        reader.read().then(function (result) {
+          if (result.done) {
+            // 处理缓冲区中剩余的数据
+            if (buffer.trim()) {
+              processBuffer(buffer, fullText, onChunk, function (updatedText) {
+                fullText = updatedText;
+                resolve(fullText);
+              });
+            } else {
+              resolve(fullText);
+            }
+            return;
+          }
+
+          var chunk = decoder.decode(result.value, { stream: true });
+          buffer += chunk;
+
+          // 按行分割处理SSE数据
+          var lines = buffer.split('\n');
+          // 最后一行可能不完整，保留在缓冲区
+          buffer = lines.pop() || '';
+
+          for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (!line || line === 'data: [DONE]') {
+              continue;
+            }
+            if (line.indexOf('data: ') === 0) {
+              try {
+                var jsonStr = line.substring(6);
+                var parsed = JSON.parse(jsonStr);
+                var content = parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content;
+                if (content) {
+                  fullText += content;
+                  if (onChunk) {
+                    onChunk(content, fullText);
+                  }
+                }
+              } catch (e) {
+                // JSON解析失败，跳过该行（可能是不完整的数据）
+                console.warn('[AIService] SSE数据解析失败:', e.message);
+              }
+            }
+          }
+
+          // 继续读取下一个chunk
+          read();
+        }).catch(function (err) {
+          reject(new Error('流式读取失败: ' + err.message));
+        });
+      }
+
+      read();
+    });
+  }
+
+  /**
+   * 处理缓冲区中剩余的数据
+   * @param {string} buffer - 缓冲区文本
+   * @param {string} fullText - 已累积的完整文本
+   * @param {Function} onChunk - 回调函数
+   * @param {Function} done - 完成回调
+   */
+  function processBuffer(buffer, fullText, onChunk, done) {
+    var lines = buffer.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line || line === 'data: [DONE]') {
+        continue;
+      }
+      if (line.indexOf('data: ') === 0) {
+        try {
+          var jsonStr = line.substring(6);
+          var parsed = JSON.parse(jsonStr);
+          var content = parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content;
+          if (content) {
+            fullText += content;
+            if (onChunk) {
+              onChunk(content, fullText);
+            }
+          }
+        } catch (e) {
+          // 忽略解析错误
+        }
+      }
+    }
+    done(fullText);
+  }
+
+  /**
+   * 发送聊天请求（支持流式和非流式）
+   * @param {Array} messages - 消息数组 [{role:'system',content:'...'}, {role:'user',content:'...'}]
+   * @param {Object} options - 可选参数 { temperature, maxTokens, stream, onChunk }
+   *   - stream: boolean，是否启用流式响应（默认true）
+   *   - onChunk: function(text, fullText)，流式响应时的回调
+   * @returns {Promise<string>} AI回复文本
+   */
+  function chat(messages, options) {
+    var config = getConfig();
+    if (!config || !config.apiKey) {
+      return Promise.reject(new Error('未配置API密钥，请先在设置中配置AI服务'));
+    }
+
+    // 确定是否使用流式响应
+    var useStream = true;
+    var onChunk = null;
+    if (options) {
+      if (options.stream !== undefined && options.stream !== null) {
+        useStream = !!options.stream;
+      }
+      onChunk = options.onChunk || null;
+    }
+
+    // 构建请求URL
+    var baseUrl = config.baseUrl || (providers[config.provider] && providers[config.provider].baseUrl) || '';
+    var url = baseUrl + '/chat/completions';
+
+    if (!url || url === '/chat/completions') {
+      return Promise.reject(new Error('无效的API地址，请检查提供商配置'));
+    }
+
+    // 构建请求参数
+    var headers = buildHeaders(config.apiKey);
+    var body = buildRequestBody(messages, options, useStream);
+
+    return fetch(url, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(body)
+    }).then(function (response) {
+      if (!response.ok) {
+        // 根据HTTP状态码返回有意义的错误信息
+        return handleHttpError(response);
+      }
+
+      if (useStream) {
+        // 流式响应处理
+        return parseStreamResponse(response, onChunk);
+      } else {
+        // 非流式响应处理
+        return response.json().then(function (data) {
+          if (data.choices && data.choices.length > 0 && data.choices[0].message) {
+            return data.choices[0].message.content;
+          }
+          throw new Error('API返回数据格式异常');
+        });
+      }
+    }).catch(function (err) {
+      // 网络错误等异常处理
+      if (err.message && err.message.indexOf('Failed to fetch') !== -1) {
+        throw new Error('网络连接失败，请检查网络设置或API地址是否正确');
+      }
+      if (err.message && err.message.indexOf('CORS') !== -1) {
+        throw new Error('跨域请求被拒绝，请确认API服务支持CORS或使用代理');
+      }
+      throw err;
+    });
+  }
+
+  /**
+   * 处理HTTP错误响应
+   * @param {Response} response - fetch响应对象
+   * @returns {Promise} 被reject的Promise
+   */
+  function handleHttpError(response) {
+    return response.json().then(function (data) {
+      var errorMsg = '请求失败 (' + response.status + ')';
+
+      // 尝试从响应体中提取错误信息
+      if (data.error) {
+        if (typeof data.error === 'string') {
+          errorMsg = data.error;
+        } else if (data.error.message) {
+          errorMsg = data.error.message;
+        }
+      } else if (data.message) {
+        errorMsg = data.message;
+      }
+
+      // 根据状态码提供更友好的提示
+      if (response.status === 401) {
+        errorMsg = 'API密钥无效或已过期，请检查配置';
+      } else if (response.status === 403) {
+        errorMsg = 'API访问被拒绝，请检查权限或余额';
+      } else if (response.status === 429) {
+        errorMsg = '请求频率过高或额度不足，请稍后重试';
+      } else if (response.status === 500) {
+        errorMsg = 'AI服务内部错误，请稍后重试';
+      } else if (response.status === 502 || response.status === 503) {
+        errorMsg = 'AI服务暂时不可用，请稍后重试';
+      }
+
+      throw new Error(errorMsg);
+    }).catch(function (err) {
+      // 如果JSON解析失败，返回原始状态码错误
+      if (err.message && err.message.indexOf('请求失败') === -1) {
+        throw err;
+      }
+      throw new Error('请求失败 (HTTP ' + response.status + ')，服务可能不可用');
+    });
+  }
+
+  // ==================== 面试专用Prompt ====================
+
+  /**
+   * 获取面试官角色的system prompt
+   * @param {string} lang - 语言 'zh' 或 'en'
+   * @returns {string} system prompt文本
+   */
+  function getInterviewSystemPrompt(lang) {
+    if (lang === 'en') {
+      return [
+        'You are an experienced admissions interviewer for a prestigious business school.',
+        'You specialize in behavioral interviews using the STAR method (Situation, Task, Action, Result).',
+        'Your role is to:',
+        '1. Ask targeted, thought-provoking questions that assess the candidate\'s leadership potential, analytical thinking, and communication skills.',
+        '2. Ask follow-up questions based on the candidate\'s answers to probe deeper into their experiences.',
+        '3. Maintain a professional yet conversational tone.',
+        '4. Ask one question at a time and wait for the candidate\'s response.',
+        '5. Provide constructive feedback when appropriate.',
+        '6. Focus on areas relevant to graduate management programs: teamwork, leadership, problem-solving, ethical judgment, and career motivation.',
+        '',
+        'Begin by greeting the candidate and asking an opening question to help them feel comfortable.'
+      ].join('\n');
+    }
+
+    // 中文版（默认）
+    return [
+      '你是一位经验丰富的经管保研面试官，来自国内顶尖商学院。',
+      '你擅长行为面试（STAR法则），能够通过有针对性的追问深入挖掘候选人的真实经历和能力。',
+      '',
+      '你的面试风格：',
+      '1. 提出有针对性的问题，评估候选人的领导力、分析思维和沟通能力',
+      '2. 根据候选人的回答进行追问，深入挖掘其经历中的细节',
+      '3. 保持专业但友好的对话氛围',
+      '4. 每次只问一个问题，等待候选人回答后再继续',
+      '5. 适时给予建设性的反馈',
+      '6. 聚焦于经管保研相关的核心素质：团队协作、领导力、问题解决能力、商业判断力和职业动机',
+      '',
+      '面试开始时，先问候候选人，然后提出一个开场问题帮助其放松。'
+    ].join('\n');
+  }
+
+  /**
+   * 获取评价用的prompt
+   * 要求AI基于STAR四维评分（0-10），输出JSON格式
+   * @param {string} answer - 候选人的回答文本
+   * @param {string} lang - 语言 'zh' 或 'en'
+   * @returns {string} 评价prompt文本
+   */
+  function getEvaluationPrompt(answer, lang) {
+    if (lang === 'en') {
+      return [
+        'Please evaluate the following interview answer using the STAR framework.',
+        'Score each dimension from 0 to 10 and provide brief reasoning.',
+        '',
+        'Candidate\'s answer:',
+        answer,
+        '',
+        'Please respond ONLY with valid JSON in the following format (no markdown, no explanation):',
+        '{',
+        '  "situation": { "score": 0, "comment": "..." },',
+        '  "task": { "score": 0, "comment": "..." },',
+        '  "action": { "score": 0, "comment": "..." },',
+        '  "result": { "score": 0, "comment": "..." },',
+        '  "overall": { "score": 0, "comment": "..." },',
+        '  "suggestions": ["...", "..."]',
+        '}'
+      ].join('\n');
+    }
+
+    // 中文版（默认）
+    return [
+      '请基于STAR法则对以下面试回答进行评价。',
+      '请对每个维度进行0-10分的评分，并给出简要评语。',
+      '',
+      '候选人的回答：',
+      answer,
+      '',
+      '请仅输出合法的JSON格式（不要使用markdown代码块，不要添加额外说明）：',
+      '{',
+      '  "situation": { "score": 0, "comment": "情境描述的清晰度和具体性" },',
+      '  "task": { "score": 0, "comment": "任务目标的明确性和挑战性" },',
+      '  "action": { "score": 0, "comment": "行动方案的合理性和执行力度" },',
+      '  "result": { "score": 0, "comment": "结果的量化程度和影响力" },',
+      '  "overall": { "score": 0, "comment": "整体表现的综合评价" },',
+      '  "suggestions": ["改进建议1", "改进建议2"]',
+      '}'
+    ].join('\n');
+  }
+
+  // ==================== 测试连接 ====================
+
+  /**
+   * 测试API连接是否正常
+   * 发送一个简单的测试请求验证配置是否正确
+   * @returns {Promise<Object>} { success: boolean, message: string }
+   */
+  function testConnection() {
+    var config = getConfig();
+    if (!config || !config.apiKey) {
+      return Promise.resolve({ success: false, message: '未配置API密钥' });
+    }
+
+    // 构建测试请求URL
+    var baseUrl = config.baseUrl || (providers[config.provider] && providers[config.provider].baseUrl) || '';
+    var url = baseUrl + '/chat/completions';
+
+    if (!url || url === '/chat/completions') {
+      return Promise.resolve({ success: false, message: '无效的API地址' });
+    }
+
+    // 发送简单的测试请求
+    var testMessages = [
+      { role: 'user', content: 'Hi, this is a connection test. Please reply with "OK".' }
+    ];
+
+    var headers = buildHeaders(config.apiKey);
+    var body = buildRequestBody(testMessages, { maxTokens: 10 }, false);
+
+    return fetch(url, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(body)
+    }).then(function (response) {
+      if (!response.ok) {
+        return handleHttpError(response).then(function () {
+          // 不应该到达这里，handleHttpError会throw
+          return { success: false, message: '未知错误' };
+        }).catch(function (err) {
+          return { success: false, message: err.message };
+        });
+      }
+
+      return response.json().then(function (data) {
+        if (data.choices && data.choices.length > 0) {
+          return { success: true, message: '连接成功' };
+        }
+        return { success: false, message: 'API返回数据格式异常' };
+      });
+    }).catch(function (err) {
+      return { success: false, message: err.message || '网络连接失败' };
+    });
+  }
+
+  // ==================== 公开API ====================
+
+  return {
+    // 配置管理
+    saveConfig: saveConfig,
+    loadConfig: loadConfig,
+    getConfig: getConfig,
+    clearConfig: clearConfig,
+    isConfigured: isConfigured,
+
+    // 提供商预设（只读）
+    providers: providers,
+
+    // API调用
+    chat: chat,
+
+    // 面试专用Prompt
+    getInterviewSystemPrompt: getInterviewSystemPrompt,
+    getEvaluationPrompt: getEvaluationPrompt,
+
+    // 测试连接
+    testConnection: testConnection
+  };
+})();
 
 </script>
   <script>
