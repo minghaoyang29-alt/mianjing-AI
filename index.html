@@ -6431,6 +6431,9 @@ const Speech = (function () {
 
   var recognition = null;
   var isListening = false;
+  var currentOnResult = null;
+  var currentOnEnd = null;
+  var currentLang = 'zh-CN';
 
   /**
    * 检测浏览器是否支持Web Speech API
@@ -6442,30 +6445,7 @@ const Speech = (function () {
   }
 
   /**
-   * 获取麦克风权限（一次性请求）
-   * @returns {Promise<boolean>}
-   */
-  function requestMicPermission() {
-    return new Promise(function(resolve) {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        resolve(false);
-        return;
-      }
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(function(stream) {
-          // 立即停止所有轨道，我们只是检查权限
-          stream.getTracks().forEach(function(track) { track.stop(); });
-          resolve(true);
-        })
-        .catch(function() {
-          resolve(false);
-        });
-    });
-  }
-
-  /**
    * 创建语音识别实例
-   * @returns {SpeechRecognition|null}
    */
   function createRecognition() {
     var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -6475,8 +6455,71 @@ const Speech = (function () {
     rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
+    rec.lang = currentLang;
 
     return rec;
+  }
+
+  /**
+   * 绑定识别事件
+   */
+  function bindEvents() {
+    if (!recognition) return;
+
+    recognition.onresult = function (event) {
+      var transcript = '';
+      var isFinal = false;
+
+      for (var i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          isFinal = true;
+        }
+      }
+
+      if (currentOnResult && typeof currentOnResult === 'function') {
+        currentOnResult(transcript, isFinal);
+      }
+    };
+
+    recognition.onend = function () {
+      // 如果仍在监听状态，说明不是手动停止的，自动重启
+      if (isListening) {
+        try {
+          recognition = createRecognition();
+          bindEvents();
+          recognition.start();
+        } catch (e) {
+          console.warn('[Speech] Auto-restart failed:', e);
+          isListening = false;
+          if (currentOnEnd) currentOnEnd('auto-restart-error');
+        }
+      }
+    };
+
+    recognition.onerror = function (event) {
+      console.warn('[Speech] Recognition error:', event.error);
+
+      // no-speech 和 aborted 是正常情况，不停止监听
+      if (event.error === 'not-allowed') {
+        isListening = false;
+        alert('麦克风权限被拒绝。请在浏览器地址栏左侧点击锁形图标，将"麦克风"设为"允许"，然后刷新页面重试。');
+        if (currentOnEnd) currentOnEnd('not-allowed');
+      } else if (event.error === 'no-speech') {
+        // 没检测到语音，继续监听
+      } else if (event.error === 'aborted') {
+        // 被中止，继续监听
+      } else if (event.error === 'network') {
+        // 网络错误，Web Speech需要联网
+        isListening = false;
+        alert('语音识别需要网络连接。请检查网络后重试。');
+        if (currentOnEnd) currentOnEnd('network');
+      } else {
+        // 其他错误
+        isListening = false;
+        if (currentOnEnd) currentOnEnd(event.error);
+      }
+    };
   }
 
   /**
@@ -6488,94 +6531,52 @@ const Speech = (function () {
   function start(lang, onResult, onEnd) {
     if (!isSupported()) {
       console.warn('[Speech] Web Speech API is not supported in this browser');
+      alert('你的浏览器不支持语音识别。请使用最新版Chrome或Edge浏览器，并确保通过HTTPS或localhost访问。');
       return;
     }
 
+    // 保存回调
+    currentOnResult = onResult;
+    currentOnEnd = onEnd;
+    currentLang = lang || 'zh-CN';
+
     // 如果已经在监听，先停止
-    if (isListening && recognition) {
+    if (isListening) {
       stop();
     }
 
-    // 先请求麦克风权限，避免重复弹窗
-    requestMicPermission().then(function(granted) {
-      if (!granted) {
-        alert('需要麦克风权限才能使用语音输入。请在浏览器地址栏点击锁形图标，允许麦克风访问。');
-        if (onEnd) onEnd('not-allowed');
-        return;
-      }
+    // 创建并启动识别
+    recognition = createRecognition();
+    bindEvents();
 
-      recognition = createRecognition();
-      if (!recognition) return;
-
-      // 设置语言
-      recognition.lang = lang || 'zh-CN';
-
-      // 识别结果回调
-      recognition.onresult = function (event) {
-        var transcript = '';
-        var isFinal = false;
-
-        for (var i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            isFinal = true;
-          }
-        }
-
-        if (onResult && typeof onResult === 'function') {
-          onResult(transcript, isFinal);
-        }
-      };
-
-      // 识别结束回调 - 如果不是手动停止的，自动重启
-      recognition.onend = function () {
-        var wasListening = isListening;
-        isListening = false;
-        if (onEnd && typeof onEnd === 'function') {
-          onEnd();
-        }
-      };
-
-      // 错误处理
-      recognition.onerror = function (event) {
-        console.warn('[Speech] Recognition error:', event.error);
-        isListening = false;
-
-        if (event.error === 'not-allowed') {
-          alert('麦克风权限被拒绝。请检查浏览器设置，允许本网站访问麦克风。');
-        }
-
-        if (event.error !== 'no-speech' && event.error !== 'aborted') {
-          if (onEnd && typeof onEnd === 'function') {
-            onEnd(event.error);
-          }
-        }
-      };
-
-      try {
-        recognition.start();
-        isListening = true;
-      } catch (e) {
-        console.error('[Speech] Failed to start recognition:', e);
-        isListening = false;
-        if (onEnd) onEnd('start-error');
-      }
-    });
+    try {
+      recognition.start();
+      isListening = true;
+      console.log('[Speech] Started listening, lang:', currentLang);
+    } catch (e) {
+      console.error('[Speech] Failed to start recognition:', e);
+      isListening = false;
+      if (onEnd) onEnd('start-error');
+    }
   }
 
   /**
    * 停止语音识别
    */
   function stop() {
+    isListening = false; // 先设false，防止onend自动重启
+
     if (recognition) {
       try {
         recognition.stop();
       } catch (e) {
-        console.warn('[Speech] Error stopping recognition:', e);
+        // ignore
       }
       recognition = null;
     }
-    isListening = false;
+
+    currentOnResult = null;
+    currentOnEnd = null;
   }
 
   /**
@@ -6587,7 +6588,6 @@ const Speech = (function () {
 
   return {
     isSupported: isSupported,
-    requestMicPermission: requestMicPermission,
     start: start,
     stop: stop,
     getListeningState: getListeningState
